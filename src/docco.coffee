@@ -143,7 +143,7 @@ get_language = (source) -> languages[path.extname(source)]
 # Compute the destination HTML path for an input source file path. If the source
 # is `lib/example.coffee`, the HTML will be at `docs/example.html`
 destination = (filepath) ->
-  'docs/' + path.basename(filepath) + '_' + path.extname(filepath).replace('.', '') + '.html'
+  'docs/' + path.basename(filepath).replace('.', '_') + '.html'
 
 # Ensure that the destination directory exists.
 ensure_directory = (dir, callback) ->
