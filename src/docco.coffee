@@ -1,55 +1,8 @@
-# **Docco** is a quick-and-dirty, hundred-line-long, literate-programming-style
-# documentation generator. It produces HTML
-# that displays your comments alongside your code. Comments are passed through
-# [Markdown](http://daringfireball.net/projects/markdown/syntax), and code is
-# passed through [Pygments](http://pygments.org/) syntax highlighting.
-# This page is the result of running Docco against its own source file.
-#
+# **Occo**
 # If you install Docco, you can run it from the command-line:
 #
 #     docco src/*.coffee
 #
-# ...will generate an HTML documentation page for each of the named source files, 
-# with a menu linking to the other pages, saving it into a `docs` folder.
-#
-# The [source for Docco](http://github.com/jashkenas/docco) is available on GitHub,
-# and released under the MIT license.
-#
-# To install Docco, first make sure you have [Node.js](http://nodejs.org/),
-# [Pygments](http://pygments.org/) (install the latest dev version of Pygments
-# from [its Mercurial repo](http://dev.pocoo.org/hg/pygments-main)), and
-# [CoffeeScript](http://coffeescript.org/). Then, with NPM:
-#
-#     sudo npm install -g docco
-#
-# Docco can be used to process CoffeeScript, JavaScript, Ruby, Python, or TeX files.
-# Only single-line comments are processed -- block comments are ignored.
-#
-#### Partners in Crime:
-#
-# * If **Node.js** doesn't run on your platform, or you'd prefer a more 
-# convenient package, get [Ryan Tomayko](http://github.com/rtomayko)'s 
-# [Rocco](http://rtomayko.github.com/rocco/rocco.html), the Ruby port that's 
-# available as a gem. 
-# 
-# * If you're writing shell scripts, try
-# [Shocco](http://rtomayko.github.com/shocco/), a port for the **POSIX shell**,
-# also by Mr. Tomayko.
-# 
-# * If Python's more your speed, take a look at 
-# [Nick Fitzgerald](http://github.com/fitzgen)'s [Pycco](http://fitzgen.github.com/pycco/). 
-#
-# * For **Clojure** fans, [Fogus](http://blog.fogus.me/)'s 
-# [Marginalia](http://fogus.me/fun/marginalia/) is a bit of a departure from 
-# "quick-and-dirty", but it'll get the job done.
-#
-# * **Lua** enthusiasts can get their fix with 
-# [Robert Gieseke](https://github.com/rgieseke)'s [Locco](http://rgieseke.github.com/locco/).
-# 
-# * And if you happen to be a **.NET**
-# aficionado, check out [Don Wilson](https://github.com/dontangg)'s 
-# [Nocco](http://dontangg.github.com/nocco/).
-
 #### Main Documentation Generation Functions
 
 # Generate the documentation for a source file by reading it in, splitting it
@@ -84,11 +37,17 @@ parse = (source, code) ->
     sections.push docs_text: docs, code_text: code
 
   for line in lines
-    if line.match(language.comment_matcher) and not line.match(language.comment_filter)
+    if line.match(language.comment_matcher) or line.match(language.mark_matcher)
       if has_code
         save docs_text, code_text
         has_code = docs_text = code_text = ''
-      docs_text += line.replace(language.comment_matcher, '') + '\n'
+      if line.match(language.spacer_matcher)
+        docs_text += '---\n'
+        docs_text += '###' + line.replace(language.spacer_matcher, '') + '\n'
+      else if line.match(language.mark_matcher)
+        docs_text += '###' + line.replace(language.mark_matcher, '') + '\n'
+      else
+        docs_text += line.replace(language.comment_matcher, '') + '\n'
     else
       has_code = yes
       code_text += line + '\n'
@@ -150,10 +109,12 @@ path     = require 'path'
 showdown = require('./../vendor/showdown').Showdown
 {spawn, exec} = require 'child_process'
 
-# Languages are stored in JSON format in the file `resources/languages.json`
-# Each item maps the file extension to the name of the Pygments lexer and the
-# symbol that indicates a comment. To add a new language, modify the file.
-languages = JSON.parse fs.readFileSync(__dirname + "/../resources/languages.json").toString()
+# Stores objective-c filetypes
+languages = 
+  '.h':
+    name: 'objective-c', symbol: '//'
+  '.m':
+    name: 'objective-c', symbol: '//'
 
 # Build out the appropriate matchers and delimiters for each language.
 for ext, l of languages
@@ -161,9 +122,11 @@ for ext, l of languages
   # Does the line begin with a comment?
   l.comment_matcher = new RegExp('^\\s*' + l.symbol + '\\s?')
 
-  # Ignore [hashbangs](http://en.wikipedia.org/wiki/Shebang_(Unix\))
-  # and interpolations...
-  l.comment_filter = new RegExp('(^#![/]|^\\s*#\\{)')
+  # Does the line begin with a pragma mark?
+  l.mark_matcher = new RegExp('^#pragma mark.*')
+
+  # Does the pragma mark line contain a spacer?
+  l.spacer_matcher = new RegExp('^#pragma mark ?-')
 
   # The dividing token we feed into Pygments, to delimit the boundaries between
   # sections.
@@ -215,7 +178,7 @@ highlight_end   = '</pre></div>'
 
 # Run the script.
 # For each source file passed in as an argument, generate the documentation.
-sources = process.ARGV.sort()
+sources = process.argv.sort()
 if sources.length
   ensure_directory 'docs', ->
     fs.writeFile 'docs/docco.css', docco_styles
